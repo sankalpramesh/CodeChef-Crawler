@@ -1,6 +1,6 @@
 import requests, re, os
 from bs4 import BeautifulSoup
-from Queue import Queue
+from queue import Queue
 from threading import Thread
 import json
 from time import sleep
