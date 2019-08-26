@@ -1,9 +1,11 @@
 import requests, re, os
 from bs4 import BeautifulSoup
-from queue import Queue
+from Queue import Queue
 from threading import Thread
-
+import json
+from time import sleep
 from models import URL
+import urllib   
 req = requests
 handle = ''
 codechef = 'https://www.codechef.com'
@@ -13,14 +15,26 @@ def fetching_By_Multiprocess(link):
   global req, handle
   prob = re.search('>(.*)<', link).group(1)
   try:
-    #print("Fetching the solved {} problem...".format(prob), end=' ', flush=True)
+    print("Fetching the solved {} problem...".format(prob))
     pat = re.search('/+[\w]+/',link)
     contest = pat.group(0)
+    ############################################################################
+    temp = contest
+    ############################################################################
     if contest == '/status/':
       contest = '/Practice/'
+      ############################################################################
+      temp = ''
+      ############################################################################
+
     # Make directory of contest folder
     if not os.path.exists(handle + '/' + contest):
       os.makedirs(handle + contest)
+      #
+      w1 = open( handle + contest + "README.md" , 'w' )
+      readme_text = "# " + contest[1:-1] + "\n" + "All my codes submitted at " + URL.BASE + temp 
+      w1.write(readme_text) 
+      #
 
     next_link = re.search('href="(.*)"', link).group(1)
     nxt_url = codechef + next_link    
@@ -47,20 +61,28 @@ def fetching_By_Multiprocess(link):
     
     # Find language
     lang=soup.find('pre')
-
-    # If language is not found, download in .text file
+    #print(lang.contents[0])
+        # If language is not found, download in .text file
     if lang == None:
       w = open(handle + contest+ prob + '.text')
       code = soup.find('div', id='solutiondiv')
       w.write(code.text)
       print('Language not found,Successfully downloaded in .text file')
       return
-
-    w = open(handle + contest + prob + '.' + lang['class'][0], 'w')
+    lang2=json.loads(str(lang.contents[0]))
+    #print(lang2)
+    w = open(handle + contest + prob + '.' + lang2['data']['languageExtension'], 'w')
     
-    code=lang.findAll('li')
-    for line in code:
-      w.write(line.text+'\n')
+    code=lang2['data']['plaintext']
+    ############################################################################
+    matter = urllib.unquote(code).decode('utf8')
+    prob_link = URL.BASE + temp + "problems/" + prob 
+    matter = "// " + prob_link + "\n\n" + matter 
+
+    w.write( matter ) 
+    #############################################################################
+
+    #w.write(urllib.unquote(code).decode('utf8'))
     
     print("Successfully Downloaded {}" .format(prob))
     global prob_count
@@ -81,9 +103,18 @@ def codechef_download(request, Handle_name):
   global req, handle
   req, handle = request, Handle_name
   print('Please be patient, Your codes are downloading')
+  
+  url = URL.BASE + '/users/' + handle
+
   if not os.path.exists(handle):
    os.makedirs(handle)
-  url = URL.BASE + '/users/' + handle
+   ############################################################################
+   w2 = open ( handle + "/README.md" , 'w' )
+   readme_text1 = "# " + "CODECHEF\n" + "All my codes Submitted and Accepted at " + url 
+   w2.write(readme_text1)
+   ############################################################################
+
+  
   try:
       r = req.get(url)
       soup=BeautifulSoup(r.content, 'lxml')
@@ -93,7 +124,7 @@ def codechef_download(request, Handle_name):
       Links = []
       for x_link in link:
         Links.append(str(x_link))
-      NUM_WORKERS = 10
+      NUM_WORKERS = 1
       threads = [Thread(target = worker) for _ in range(NUM_WORKERS)]
       [task_queue.put(item) for item in Links]
       [thread.start() for thread in threads]
@@ -107,3 +138,4 @@ def codechef_download(request, Handle_name):
 if __name__ == '__main__':
   handle = '' #Write down your handle name
   codechef_download(requests, handle)
+
