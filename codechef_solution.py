@@ -17,39 +17,42 @@ prob_count = 0
 def fetching_By_Multiprocess(link):
     global req, handle
     prob = re.search('>(.*)<', link).group(1)
-    
+
     try:
         print("Fetching the solved {} problem...".format(prob))
-        pat = re.search('/+[\w]+/', link)
-        contest = pat.group(0)[1:-1]
+        pattern = re.search('/+[\w]+/', link)
+        contest = pattern.group(0)[1:-1]
         temp = contest
         if contest == 'status':
             contest = 'Practice'
             temp = ''
 
         # Make directory of contest folder
-        path = handle + "/" + contest
-        if not os.path.exists(path):
-            os.mkdir(path)
-            with open("{}/README.md".format(path), "w") as w:
+        directory_path = handle + "/" + contest
+        if not os.path.exists(directory_path):
+            os.mkdir(directory_path)
+            with open("{}/README.md".format(directory_path), "w") as w:
                 readme_text = "# " + contest + "\n"
                 readme_text += "All my codes submitted at " + URL.BASE + temp
                 w.write(readme_text)
 
+        file_path = directory_path + "/" + prob
+        if os.path.exists("{}.cpp".format(file_path)) == True:
+            return
+
         next_link = re.search('href="(.*)"', link).group(1)
-        nxt_url = codechef_url + next_link
-        rqt = req.get(nxt_url)
-        # print(rqt.content)
-        soup = BeautifulSoup(rqt.content, 'lxml')
+        next_url = codechef_url + next_link
+        resp = req.get(next_url)
+
+        soup = BeautifulSoup(resp.content, 'lxml')
         t = soup.find(href=re.compile("/viewsolution"))
-        print(t)
 
         recall = 0
-        while t == None and recall < 3:
+        while t == None and recall < 5:
             print("Trying Again {}...".format(prob))
-            rqt = req.get(nxt_url)
-            soup = BeautifulSoup(rqt.content, 'lxml')
-            t = soup.find(href = re.compile("^/viewsolution"))
+            resp = req.get(next_url)
+            soup = BeautifulSoup(resp.content, 'lxml')
+            t = soup.find(href=re.compile("^/viewsolution"))
             recall += 1
             pass
 
@@ -59,46 +62,47 @@ def fetching_By_Multiprocess(link):
             return
 
         #Forward request to the solution
-        headers = { 'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_7_5) \
+        headers = {'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_7_5) \
                                    AppleWebKit/537.11 (KHTML, like Gecko) \
                                    Chrome/23.0.1271.64 Safari/537.11'
                   }
-        rqt_final = req.get(codechef_url + t['href'], headers=headers, stream=True)
-        print("\n\n")
-        # print(rqt_final.content)
-        print("\n\n")
-        soup = BeautifulSoup(rqt_final.content, 'lxml')
+        resp_final = req.get(codechef_url + t['href'], headers=headers, stream=True)
+        soup = BeautifulSoup(resp_final.content, 'lxml')
 
-        path += '/' + prob
+        # Find JSON Script
+        data = soup.find("div", class_="ns-content")
+        soup = BeautifulSoup(str(data), 'lxml')
+        data = soup.find("script")
 
-        # Find language
-        lang = soup.find('pre')
-
-        # If language is not found, download in .txt file
-        if lang == None:
-            with open("{}.txt".format(path), "w") as w:
-                code = soup.find('div', id='solutiondiv')
-                w.write(code.text)
-                print('Language not found, Successfully downloaded in .txt file')
+        # If JSON Script is not found
+        if data == None:
+            print('Script not found')
             return
 
-        lang2 = json.loads(str(lang.contents[0]))
-        with open("{}.{}".format(path, lang2['data']['languageExtension']), "w") as w:
+        # If JSON Script is found store in dictionary
+        json_dict = str(data.contents[0]).split(" meta_info = ")[-1].strip()[:-1]
+        info = json.loads(json_dict)
+
+        # Make file of problem solution
+        with open("{}.{}".format(file_path, info['data']['languageExtension']), "w") as w:
             prob_link = URL.BASE + temp + "problems/" + prob
             header = "// " + prob_link + "\n\n"
             w.write(header)
             w.flush()
-            code = lang2['data']['plaintext']
-            matter = urllib.unquote(code).decode('utf8')
-            w.write(matter)
 
-        print("Successfully Downloaded {}" .format(prob))
+            code = info['data']['plaintext']
+            if (type(code) == bytes):
+                code = code.decode('utf-8')
+            w.write(code)
+
+        print("Successfully Downloaded {}".format(prob))
         global prob_count
         prob_count += 1
 
     except requests.exceptions.RequestException as e:
         print("Error occured in {} -> {}" .format(prob, e))
         return
+
 
 # Thread worker used to synchronise the thread parallely
 task_queue = Queue()
@@ -111,9 +115,9 @@ def worker():
         task_queue.task_done()
 
 
-def codechef_download(request, Handle_name):
+def codechef_download(request, handle_name):
     global req, handle
-    req, handle = request, Handle_name
+    req, handle = request, handle_name
     print('Please be patient, Your codes are downloading')
 
     url = URL.BASE + '/users/' + handle
