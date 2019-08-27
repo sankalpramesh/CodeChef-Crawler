@@ -1,13 +1,12 @@
-import requests
 import re
 import os
+import json
+import requests
+from models import URL
 from bs4 import BeautifulSoup
 from queue import Queue
 from threading import Thread
-import json
-from time import sleep
-from models import URL
-import urllib
+
 req = requests
 handle = ''
 codechef_url = 'https://www.codechef.com'
@@ -37,7 +36,7 @@ def fetching_By_Multiprocess(link):
                 w.write(readme_text)
 
         file_path = directory_path + "/" + prob
-        if os.path.exists("{}.cpp".format(file_path)) == True:
+        if os.path.exists("{}.cpp".format(file_path)):
             return
 
         next_link = re.search('href="(.*)"', link).group(1)
@@ -48,7 +47,7 @@ def fetching_By_Multiprocess(link):
         t = soup.find(href=re.compile("/viewsolution"))
 
         recall = 0
-        while t == None and recall < 5:
+        while t is None and recall < 5:
             print("Trying Again {}...".format(prob))
             resp = req.get(next_url)
             soup = BeautifulSoup(resp.content, 'lxml')
@@ -56,17 +55,17 @@ def fetching_By_Multiprocess(link):
             recall += 1
             pass
 
-        if t == None:
+        if t is None:
             print('Something Went wrong, may be solution of', prob,
                   'is not visible or might be there is some network problem')
             return
 
-        #Forward request to the solution
+        # Forward request to the solution
         headers = {'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_7_5) \
                                    AppleWebKit/537.11 (KHTML, like Gecko) \
-                                   Chrome/23.0.1271.64 Safari/537.11'
-                  }
-        resp_final = req.get(codechef_url + t['href'], headers=headers, stream=True)
+                                   Chrome/23.0.1271.64 Safari/537.11'}
+        resp_final = req.get(codechef_url + t['href'],
+                             headers=headers, stream=True)
         soup = BeautifulSoup(resp_final.content, 'lxml')
 
         # Find JSON Script
@@ -75,16 +74,18 @@ def fetching_By_Multiprocess(link):
         data = soup.find("script")
 
         # If JSON Script is not found
-        if data == None:
+        if data is None:
             print('Script not found')
             return
 
         # If JSON Script is found store in dictionary
-        json_dict = str(data.contents[0]).split(" meta_info = ")[-1].strip()[:-1]
+        json_dict = str(data.contents[0]).split(" meta_info = ")[-1]
+        json_dict = json_dict.strip()[:-1]
         info = json.loads(json_dict)
 
         # Make file of problem solution
-        with open("{}.{}".format(file_path, info['data']['languageExtension']), "w") as w:
+        with open("{}.{}".format(file_path,
+                                 info['data']['languageExtension']), "w") as w:
             prob_link = URL.BASE + temp + "problems/" + prob
             header = "// " + prob_link + "\n\n"
             w.write(header)
@@ -109,7 +110,7 @@ task_queue = Queue()
 
 
 def worker():
-    while task_queue.empty() == False:
+    while not task_queue.empty():
         address = task_queue.get()
         fetching_By_Multiprocess(address)
         task_queue.task_done()

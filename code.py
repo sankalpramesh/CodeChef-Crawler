@@ -1,4 +1,3 @@
-import requests
 import re
 import conf
 from models import URL
@@ -24,11 +23,9 @@ def session_logout(req, page, link):
         'form_id': 'session_limit_page'
     })
 
-    pg = req.post(link, data=payload)
-
 
 def codechef_login(req, link):
-    print('Logging into {}'.format(link+conf.handle))
+    print('Logging into {}'.format(link + conf.handle))
     payload = {
         conf.user_key: conf.handle,
         conf.pass_key: conf.pass_val,
@@ -65,7 +62,10 @@ def get_rating(req, handle):
         t = soup.find('aside', class_='sidebar small-4 columns pr0')
         overall = t.find('div', attrs={'class': 'rating-number'})
         Ratings = t.findAll('td')
-        print('\tOverall Rating = {}\n\tIndividual Ratings\n\tLong Challenge =  {}\n\tCook Off   \t   = {}\n\tLunch Time     = {}'.format(
-            overall.text, Ratings[1].text, Ratings[5].text, Ratings[9].text))
+        print("\tOverall Rating{}\n\n".format(overall.text))
+        print("\tIndividual Ratings\n")
+        print("\tLong Challenge{}\n\n".format(Ratings[1].text))
+        print("\tCook Off{}\n\n".format(Ratings[5].text))
+        print("\tLunchtime{}\n\n".format(Ratings[9].text))
     except:
         print('Rating not available right now! Please check your Internet Connection')
